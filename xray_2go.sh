@@ -705,9 +705,11 @@ green "1. 修改UUID"
 skyblue "------------"
 green "2. 修改grpc-reality端口"
 skyblue "------------"
-green "3. 修改reality节点伪装域名"
+green "3. 修改xhttp-reality端口"
 skyblue "------------"
-purple "${purple}4. 返回主菜单"
+green "4. 修改reality节点伪装域名"
+skyblue "------------"
+purple "${purple}0. 返回主菜单"
 skyblue "------------"
 reading "请输入选择: " choice
 case "${choice}" in
@@ -750,7 +752,24 @@ case "${choice}" in
         while IFS= read -r line; do yellow "$line"; done < ${work_dir}/url.txt
         green "\nGRPC-reality端口已修改成：${purple}$new_port${re} ${green}请更新订阅或手动更改grpc-reality节点端口${re}\n"
         ;;
-    3)  
+    3)
+        reading "\n请输入xhttp-reality端口 (回车跳过将使用随机端口): " new_port
+        [ -z "$new_port" ] && new_port=$(shuf -i 2000-65000 -n 1)
+        until [[ -z $(lsof -iTCP:$new_port -sTCP:LISTEN 2>/dev/null) ]]; do
+            if [[ -n $(lsof -iTCP:$new_port -sTCP:LISTEN 2>/dev/null) ]]; then
+                echo -e "${red}${new_port}端口已经被其他程序占用，请更换端口重试${re}"
+                reading "请输入新的订阅端口(1-65535):" new_port
+                [[ -z $new_port ]] && new_port=$(shuf -i 2000-65000 -n 1)
+            fi
+        done
+        sed -i "35s/\"port\":\s*[0-9]\+/\"port\": $new_port/" /etc/xray/config.json
+        restart_xray
+        sed -i '3s/\(vless:\/\/[^@]*@[^:]*:\)[0-9]\{1,\}/\1'"$new_port"'/' $client_dir
+        base64 -w0 $client_dir > /etc/xray/sub.txt
+        while IFS= read -r line; do yellow "$line"; done < ${work_dir}/url.txt
+        green "\nxhttp-reality端口已修改成：${purple}$new_port${re} ${green}请更新订阅或手动更改xhttp-reality节点端口${re}\n"
+        ;;
+    4)  
         clear
         green "\n1. bgk.jp\n\n2. www.joom.com\n\n3. www.stengg.com\n\n4. www.nazhumi.com\n"  
         reading "\n请输入新的Reality伪装域名(可自定义输入,回车留空将使用默认1): " new_sni
@@ -776,7 +795,7 @@ case "${choice}" in
             echo ""
             green "\nReality sni已修改为：${purple}${new_sni}${re} ${green}请更新订阅或手动更改reality节点的sni域名${re}\n"
         ;; 
-    4)  menu ;;
+    0)  menu ;;
     *)  read "无效的选项！" ;; 
 esac
 }
