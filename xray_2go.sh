@@ -6,7 +6,7 @@ red="\033[1;91m"
 green="\e[1;32m"
 yellow="\e[1;33m"
 purple="\e[1;35m"
-skybule="\e[1;36m"
+skyblue="\e[1;36m"
 red() { echo -e "\e[1;91m$1\033[0m"; }
 green() { echo -e "\e[1;32m$1\033[0m"; }
 yellow() { echo -e "\e[1;33m$1\033[0m"; }
@@ -168,7 +168,8 @@ install_xray() {
 
    # 生成随机UUID和密码
     password=$(< /dev/urandom tr -dc 'A-Za-z0-9' | head -c 24)
-    GRPC_PORT=$((PORT + 1))
+    GRPC_PORT=$(($PORT + 1))
+    XHTTP_PORT=$(($PORT + 2))
 
     # 关闭防火墙
     iptables -F > /dev/null 2>&1 && iptables -P INPUT ACCEPT > /dev/null 2>&1 && iptables -P FORWARD ACCEPT > /dev/null 2>&1 && iptables -P OUTPUT ACCEPT > /dev/null 2>&1
@@ -191,7 +192,7 @@ cat > "${config_dir}" << EOF
         "decryption": "none",
         "fallbacks": [
           { "dest": 3001 }, { "path": "/vless-argo", "dest": 3002 },
-          { "path": "/vmess-argo", "dest": 3003 }, { "path": "", "dest": 3004 }
+          { "path": "/vmess-argo", "dest": 3003 }
         ]
       },
       "streamSettings": { "network": "tcp" }
@@ -214,13 +215,15 @@ cat > "${config_dir}" << EOF
       "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
     },
     {
-      "port": 3004, "listen": "127.0.0.1", "protocol": "vmess",
-      "settings": {"clients": [{"id": "$UUID", "alterId": 0, "security": "auto"}]},
-      "streamSettings": {"network": "xhttp", "security": "none", "xhttpSettings": {"host": "", "path": ""}},
-      "sniffing": {"enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false}
+      "listen":"::","port": $XHTTP_PORT, "protocol": "vless","settings": {"clients": [{"id": "$UUID"}],"decryption": "none"},
+      "streamSettings": {"network": "xhttp","security": "reality","realitySettings": {"target": "www.nazhumi.com:443","xver": 0,"serverNames": 
+      ["www.nazhumi.com"],"privateKey": "$private_key","shortIds": [""]}},"sniffing": {"enabled": true,"destOverride": ["http","tls","quic"]}
     },
     {
-      "listen":"::","port":$GRPC_PORT,"protocol":"vless","settings":{"clients":[{"id":"$UUID"}],"decryption":"none"},"streamSettings":{"network":"grpc","security":"reality","realitySettings":{"dest":"www.iij.ad.jp:443","serverNames":["www.iij.ad.jp"],"privateKey":"$private_key","shortIds":[""]},"grpcSettings":{"serviceName":"grpc"}},"sniffing":{"enabled":true,"destOverride":["http","tls","quic"]}}
+      "listen":"::","port":$GRPC_PORT,"protocol":"vless","settings":{"clients":[{"id":"$UUID"}],"decryption":"none"},
+      "streamSettings":{"network":"grpc","security":"reality","realitySettings":{"dest":"www.iij.ad.jp:443","serverNames":["www.iij.ad.jp"],
+      "privateKey":"$private_key","shortIds":[""]},"grpcSettings":{"serviceName":"grpc"}},"sniffing":{"enabled":true,"destOverride":["http","tls","quic"]}
+    }
   ],
   "dns": { "servers": ["https+local://8.8.8.8/dns-query"] },
    "outbounds": [
@@ -285,9 +288,10 @@ EOF
     bash -c 'echo "0 0" > /proc/sys/net/ipv4/ping_group_range'
     systemctl daemon-reload
     systemctl enable xray
-    systemctl start xray
+    systemctl is-active --quiet xray || systemctl start xray
     systemctl enable tunnel
     systemctl start tunnel
+    systemctl is-active --quiet tunnel || systemctl start xray
 }
 # 适配alpine 守护进程
 alpine_openrc_services() {
@@ -344,11 +348,12 @@ get_info() {
   cat > ${work_dir}/url.txt <<EOF
 vless://${UUID}@${IP}:${GRPC_PORT}??encryption=none&security=reality&sni=www.iij.ad.jp&fp=chrome&pbk=${public_key}&allowInsecure=1&type=grpc&authority=www.iij.ad.jp&serviceName=grpc&mode=gun#${isp}
 
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Fvless-argo%3Fed%3D2048#${isp}
+vless://${UUID}@${IP}:${XHTTP_PORT}?encryption=none&security=reality&sni=www.nazhumi.com&fp=chrome&pbk=${public_key}&allowInsecure=1&type=xhttp&mode=auto#${isp}
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess-argo?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}&fp=chrome&type=ws&host=${argodomain}&path=%2Fvless-argo%3Fed%3D2560#${isp}
 
-vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${IP}\", \"port\": \"${ARGO_PORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"auto\", \"net\": \"xhttp\", \"type\": \"auto\", \"host\": \"${argodomain}\", \"path\": \"\", \"tls\": \"none\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }" | base64 -w0)
+vmess://$(echo "{ \"v\": \"2\", \"ps\": \"${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess-argo?ed=2560\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\", \"fp\": \"chrome\"}" | base64 -w0)
+
 EOF
 echo ""
 while IFS= read -r line; do echo -e "${purple}$line"; done < ${work_dir}/url.txt
@@ -378,7 +383,7 @@ fi
 
 # caddy订阅配置
 add_caddy_conf() {
-[ -f /etc/caddy/Caddyfile ] && cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak
+[ -f /etc/caddy/Caddyfile ] && cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak > /dev/null 2>&1
 rm -rf /etc/caddy/Caddyfile
     cat > /etc/caddy/Caddyfile << EOF
 {
@@ -407,6 +412,8 @@ rm -rf /etc/caddy/Caddyfile
 EOF
 
 /usr/bin/caddy validate --config /etc/caddy/Caddyfile > /dev/null 2>&1
+chown caddy:caddy /var/log/caddy/caddy.log > /dev/null 2>&1
+chmod 644 /var/log/caddy/caddy.log > /dev/null 2>&1
 
 if [ $? -eq 0 ]; then
     if [ -f /etc/alpine-release ]; then
@@ -698,7 +705,7 @@ green "1. 修改UUID"
 skyblue "------------"
 green "2. 修改grpc-reality端口"
 skyblue "------------"
-green "3. 修改grpc-reality伪装域名"
+green "3. 修改reality节点伪装域名"
 skyblue "------------"
 purple "${purple}4. 返回主菜单"
 skyblue "------------"
@@ -729,8 +736,8 @@ case "${choice}" in
     2)
         reading "\n请输入grpc-reality端口 (回车跳过将使用随机端口): " new_port
         [ -z "$new_port" ] && new_port=$(shuf -i 2000-65000 -n 1)
-        until [[ -z $(netstat -tuln | grep -w tcp | awk '{print $4}' | sed 's/.*://g' | grep -w "$new_port") ]]; do
-            if [[ -n $(netstat -tuln | grep -w tcp | awk '{print $4}' | sed 's/.*://g' | grep -w "$new_port") ]]; then
+        until [[ -z $(lsof -iTCP:$new_port -sTCP:LISTEN 2>/dev/null) ]]; do
+            if [[ -n $(lsof -iTCP:$new_port -sTCP:LISTEN 2>/dev/null) ]]; then
                 echo -e "${red}${new_port}端口已经被其他程序占用，请更换端口重试${re}"
                 reading "请输入新的订阅端口(1-65535):" new_port
                 [[ -z $new_port ]] && new_port=$(shuf -i 2000-65000 -n 1)
@@ -814,8 +821,8 @@ if [ ${check_xray} -eq 0 ]; then
         3)
             reading "请输入新的订阅端口(1-65535):" sub_port
             [ -z "$sub_port" ] && sub_port=$(shuf -i 2000-65000 -n 1)
-            until [[ -z $(netstat -tuln | grep -w tcp | awk '{print $4}' | sed 's/.*://g' | grep -w "$sub_port") ]]; do
-                if [[ -n $(netstat -tuln | grep -w tcp | awk '{print $4}' | sed 's/.*://g' | grep -w "$sub_port") ]]; then
+            until [[ -z $(lsof -iTCP:$sub_port -sTCP:LISTEN 2>/dev/null) ]]; do
+                if [[ -n $(lsof -iTCP:$sub_port -sTCP:LISTEN 2>/dev/null) ]]; then
                     echo -e "${red}${new_port}端口已经被其他程序占用，请更换端口重试${re}"
                     reading "请输入新的订阅端口(1-65535):" sub_port
                     [[ -z $sub_port ]] && sub_port=$(shuf -i 2000-65000 -n 1)
@@ -987,7 +994,7 @@ ArgoDomain=$get_argodomain
 
 # 更新Argo域名到订阅
 change_argo_domain() {
-    sed -i "3s/sni=[^&]*/sni=$ArgoDomain/; 3s/host=[^&]*/host=$ArgoDomain/" /etc/xray/url.txt
+    sed -i "5s/sni=[^&]*/sni=$ArgoDomain/; 5s/host=[^&]*/host=$ArgoDomain/" /etc/xray/url.txt
     content=$(cat "$client_dir")
     vmess_urls=$(grep -o 'vmess://[^ ]*' "$client_dir")
     vmess_prefix="vmess://"
@@ -1063,7 +1070,7 @@ while true; do
                 yellow "Xray-2go 已经安装！"
             else
                 install_caddy
-                manage_packages install jq unzip iptables openssl coreutils
+                manage_packages install jq unzip iptables openssl coreutils lsof
                 install_xray
 
                 if [ -x "$(command -v systemctl)" ]; then
