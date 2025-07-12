@@ -15,7 +15,7 @@
 ***
 * xhttp目前支持的客户端较少，v2rayN或小火箭更新到新版内核才支持
 * 可选环境变量：UUID PORT CFIP CFPORT 自定义变量放脚本前面运行即可
-* NAT小鸡需带PORT变量运行并确保PORT之后的1个端口可用，或运行完后更改订阅端口和grpc-reality端口
+* NAT小鸡需带PORT变量运行并确保PORT之后的1个端口可用，或运行完后更改订阅端口和reality端口
 
 ```
 bash <(curl -Ls https://github.com/eooce/xray-2go/raw/main/xray_2go.sh)
