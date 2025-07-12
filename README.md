@@ -1,6 +1,6 @@
 # xray-argo无交互一键四协议安装脚本
 最好用的一键xray-argo脚本，一键四协议无交互安装脚本！
-* vless-grpc-reality | vless-ws-tls(argo) | vmess-ws-tls(argo) | vmess-xhttp
+* vless-grpc-reality | vless-xhttp-reality | vless-ws-tls(argo) | vmess-ws-tls(argo)
 
 ### 支持系统列表：
 >Debian
@@ -13,7 +13,7 @@
 >Amazom-linux
 
 ***
-* xhttp目前支持的客户端较少,需更新V2rayN到新版，splithttp已启用，改为xhttp
+* xhttp目前支持的客户端较少，v2rayN或小火箭更新到新版内核才支持
 * 可选环境变量：UUID PORT CFIP CFPORT 自定义变量放脚本前面运行即可
 * NAT小鸡需带PORT变量运行并确保PORT之后的1个端口可用，或运行完后更改订阅端口和grpc-reality端口
 
